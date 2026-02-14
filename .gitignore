@@ -9,6 +9,7 @@ __pycache__/
 .coverage
 htmlcov/
 .ipynb_checkpoints/
+*.csv
 
 # Virtual env
 .venv/
@@ -33,10 +34,10 @@ data/raw/
 !data/processed/
 data/processed/**/*
 !data/processed/metadata/
-!data/processed/metadata/*.csv
+data/processed/metadata/images.csv
 !data/processed/metadata/*.json
 !data/processed/splits/
-!data/processed/splits/*.txt
+data/processed/splits/*.txt
 
 # ---- ML artifacts ----
 ml/runs/

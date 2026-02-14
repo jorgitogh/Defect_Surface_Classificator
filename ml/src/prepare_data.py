@@ -15,7 +15,7 @@ CLASSES = [
     "inclusion",
     "patches",
     "pitted_surface",
-    "rolled_in_scale",
+    "rolled-in_scale",
     "scratches",
 ]
 
