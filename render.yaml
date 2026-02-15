@@ -21,7 +21,6 @@ services:
   - type: web
     name: defect-classifier-web
     runtime: static
-    plan: free
     rootDir: web
     buildCommand: "echo \"window.__APP_CONFIG__ = { API_URL: 'https://${API_HOST}' };\" > config.js"
     staticPublishPath: .
