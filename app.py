@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import os
 import tempfile
@@ -18,6 +19,187 @@ from torchvision import transforms
 from torchvision.models import resnet18
 
 from ml.src.config import get_paths
+
+
+def inject_styles() -> None:
+    st.markdown(
+        """
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap');
+
+          :root {
+            --bg-a: #f2f6fa;
+            --bg-b: #dfe8f0;
+            --panel: #ffffff;
+            --text-main: #0f2133;
+            --text-muted: #5e7489;
+            --line: #c8d7e5;
+            --accent: #e98b2a;
+            --accent-2: #2f8ba9;
+          }
+
+          .stApp {
+            background:
+              radial-gradient(65rem 38rem at 102% -5%, #c7d9ea 0%, transparent 62%),
+              radial-gradient(52rem 34rem at -6% -12%, #edf4fb 0%, transparent 50%),
+              linear-gradient(135deg, var(--bg-a), var(--bg-b));
+            color: var(--text-main);
+          }
+
+          .main .block-container {
+            max-width: 1080px;
+            padding-top: 1.8rem;
+            padding-bottom: 2.5rem;
+          }
+
+          h1, h2, h3 {
+            font-family: "Chakra Petch", sans-serif !important;
+            letter-spacing: 0.01em;
+            color: var(--text-main);
+          }
+
+          .hero-card {
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 1rem 1.15rem 1.1rem;
+            background: linear-gradient(145deg, rgba(255,255,255,0.96), rgba(245,250,255,0.95));
+            box-shadow: 0 12px 28px rgba(22, 47, 75, 0.08);
+            margin-bottom: 1rem;
+          }
+
+          .hero-card .eyebrow {
+            margin: 0;
+            font-family: "IBM Plex Mono", monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            font-size: 0.72rem;
+            color: var(--accent-2);
+          }
+
+          .hero-card h1 {
+            margin: 0.25rem 0 0.3rem;
+            font-size: clamp(1.6rem, 3vw, 2.4rem);
+            line-height: 1.04;
+          }
+
+          .hero-card .subtitle {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+          }
+
+          .status-badge {
+            display: inline-block;
+            margin: 0.65rem 0 0.3rem;
+            padding: 0.32rem 0.62rem;
+            border-radius: 999px;
+            background: #edf6fb;
+            border: 1px solid #c6deec;
+            color: #2f6f8a;
+            font-size: 0.75rem;
+            font-family: "IBM Plex Mono", monospace;
+          }
+
+          .image-card,
+          .results-card {
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--panel);
+            box-shadow: 0 10px 24px rgba(22, 47, 75, 0.07);
+            padding: 0.85rem;
+          }
+
+          .image-caption {
+            margin-top: 0.45rem;
+            margin-bottom: 0;
+            color: var(--text-muted);
+            font-size: 0.84rem;
+          }
+
+          .top-prediction {
+            border: 1px solid #dce7f1;
+            border-radius: 13px;
+            padding: 0.8rem;
+            background: linear-gradient(150deg, #f8fbff, #edf5fc);
+            margin-bottom: 0.75rem;
+          }
+
+          .top-prediction .label {
+            margin: 0 0 0.28rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.68rem;
+            font-family: "IBM Plex Mono", monospace;
+            color: #63829a;
+          }
+
+          .top-prediction .class-name {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #16344f;
+            line-height: 1.15;
+          }
+
+          .top-prediction .confidence {
+            margin: 0.2rem 0 0;
+            font-size: 0.9rem;
+            color: #2f8ba9;
+            font-family: "IBM Plex Mono", monospace;
+          }
+
+          .prob-row {
+            margin-bottom: 0.6rem;
+          }
+
+          .prob-label-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 0.23rem;
+          }
+
+          .prob-name {
+            color: #29445d;
+            font-size: 0.9rem;
+          }
+
+          .prob-value {
+            color: #5f7990;
+            font-size: 0.8rem;
+            font-family: "IBM Plex Mono", monospace;
+          }
+
+          .prob-track {
+            width: 100%;
+            height: 8px;
+            border-radius: 999px;
+            background: #e5edf4;
+            overflow: hidden;
+          }
+
+          .prob-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            transition: width 320ms ease;
+          }
+
+          .section-note {
+            color: var(--text-muted);
+            font-size: 0.83rem;
+            margin-top: 0.35rem;
+          }
+
+          @media (max-width: 900px) {
+            .main .block-container {
+              padding-top: 1.1rem;
+            }
+          }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def get_secret_or_env(name: str) -> str:
@@ -167,10 +349,58 @@ def predict_image(model, device, image: Image.Image, class_names: list[str]) -> 
     return rows
 
 
+def pretty_class_name(name: str) -> str:
+    return name.replace("_", " ").replace("-", " ").title()
+
+
+def render_top_prediction(top_class: str, top_prob: float) -> None:
+    safe_class = html.escape(pretty_class_name(top_class))
+    st.markdown(
+        f"""
+        <div class="top-prediction">
+          <p class="label">Top Prediction</p>
+          <p class="class-name">{safe_class}</p>
+          <p class="confidence">{top_prob * 100:.2f}% confidence</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_probability_rows(rows: list[tuple[str, float]]) -> None:
+    for class_name, prob in rows:
+        safe_class = html.escape(pretty_class_name(class_name))
+        width = max(0.0, min(prob, 1.0)) * 100.0
+        st.markdown(
+            f"""
+            <div class="prob-row">
+              <div class="prob-label-line">
+                <span class="prob-name">{safe_class}</span>
+                <span class="prob-value">{prob * 100:.2f}%</span>
+              </div>
+              <div class="prob-track">
+                <div class="prob-fill" style="width:{width:.2f}%"></div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
 def main():
-    st.set_page_config(page_title="Defect Surface Classifier", page_icon=":mag:", layout="centered")
-    st.title("Defect Surface Classifier")
-    st.caption("Upload one image and get the predicted surface defect class.")
+    st.set_page_config(page_title="Defect Surface Classifier", layout="wide")
+    inject_styles()
+
+    st.markdown(
+        """
+        <section class="hero-card">
+          <p class="eyebrow">Computer Vision Showcase</p>
+          <h1>Surface Defect Classifier</h1>
+          <p class="subtitle">Upload a steel surface image to predict the defect type and inspect model confidence.</p>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
 
     paths = get_paths()
 
@@ -192,31 +422,55 @@ def main():
         st.error(f"Model loading error: {exc}")
         st.stop()
 
-    st.success(f"Model ready ({device})")
+    st.markdown(f'<span class="status-badge">Model ready on {device}</span>', unsafe_allow_html=True)
 
-    uploaded = st.file_uploader("Upload image", type=["jpg", "jpeg", "png", "bmp", "webp"])
-    if uploaded is None:
-        st.info("Upload one image to run prediction.")
-        return
+    left_col, right_col = st.columns([1.05, 1.0], gap="large")
 
-    try:
-        image = Image.open(uploaded)
-    except UnidentifiedImageError:
-        st.error("Could not open image file.")
-        return
+    with left_col:
+        st.markdown('<div class="image-card">', unsafe_allow_html=True)
+        uploaded = st.file_uploader("Image file", type=["jpg", "jpeg", "png", "bmp", "webp"])
 
-    st.image(image, caption=uploaded.name, use_container_width=True)
+        image = None
+        if uploaded is not None:
+            try:
+                image = Image.open(uploaded)
+            except UnidentifiedImageError:
+                st.error("Could not open image file.")
 
-    if st.button("Predict", type="primary", use_container_width=True):
-        rows = predict_image(model, device, image, class_names)
-        top_class, top_prob = rows[0]
-        st.metric(label="Top prediction", value=top_class, delta=f"{top_prob * 100:.2f}% confidence")
+        if image is not None:
+            st.image(image, use_container_width=True)
+            st.markdown(
+                f'<p class="image-caption">{html.escape(uploaded.name)}</p>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("Upload one image to run prediction.")
 
-        st.subheader("Class probabilities")
-        table_rows = [{"class": name, "probability": prob} for name, prob in rows]
-        st.dataframe(table_rows, use_container_width=True, hide_index=True)
-        chart_data = {name: prob for name, prob in rows}
-        st.bar_chart(chart_data)
+        run_prediction = st.button("Analyze Surface", type="primary", use_container_width=True)
+        if run_prediction:
+            if image is None:
+                st.warning("Please upload a valid image first.")
+            else:
+                rows = predict_image(model, device, image, class_names)
+                st.session_state["last_rows"] = rows
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with right_col:
+        st.markdown('<div class="results-card">', unsafe_allow_html=True)
+        if "last_rows" in st.session_state:
+            rows = st.session_state["last_rows"]
+            top_class, top_prob = rows[0]
+            render_top_prediction(top_class, top_prob)
+            st.markdown("#### Probability Breakdown")
+            render_probability_rows(rows)
+            st.markdown(
+                '<p class="section-note">Higher bars indicate stronger model confidence for that class.</p>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown("#### Results")
+            st.info("Your prediction output will appear here after analyzing an image.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
