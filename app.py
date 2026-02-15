@@ -5,6 +5,7 @@ import html
 import json
 import os
 import tempfile
+import tomllib
 from pathlib import Path
 from pickle import UnpicklingError
 from urllib.error import URLError
@@ -206,11 +207,28 @@ def get_secret_or_env(name: str) -> str:
     from_env = os.getenv(name, "").strip()
     if from_env:
         return from_env
-    try:
-        from_secret = str(st.secrets.get(name, "")).strip()
-    except Exception:
-        from_secret = ""
+    from_secret = str(_LOCAL_SECRETS.get(name, "")).strip()
     return from_secret
+
+
+def load_local_secrets() -> dict[str, str]:
+    candidates = [
+        Path.cwd() / ".streamlit" / "secrets.toml",
+        Path.home() / ".streamlit" / "secrets.toml",
+    ]
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        try:
+            with open(candidate, "rb") as f:
+                payload = tomllib.load(f)
+            return {str(k): str(v) for k, v in payload.items()}
+        except Exception:
+            return {}
+    return {}
+
+
+_LOCAL_SECRETS = load_local_secrets()
 
 
 def resolve_class_map_path(paths) -> Path:
