@@ -23,7 +23,7 @@ services:
     runtime: static
     plan: free
     rootDir: web
-    buildCommand: printf "window.__APP_CONFIG__ = { API_URL: 'https://%s' };\n" "$API_HOST" > config.js
+    buildCommand: "echo \"window.__APP_CONFIG__ = { API_URL: 'https://${API_HOST}' };\" > config.js"
     staticPublishPath: .
     envVars:
       - key: API_HOST
