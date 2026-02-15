@@ -1,8 +1,21 @@
 # Defect Surface Classifier
 
-## Streamlit Demo (Simple Option)
+## What This Code Does
 
-This is the easiest way to present your model online or locally.
+This project classifies steel surface defects using a ResNet18 model.
+
+Main components:
+
+- `ml/src/prepare_data.py`: parses annotations, builds metadata, and creates train/val/test splits.
+- `ml/src/train.py`: trains the model and saves the best checkpoint (`best_model.pt`).
+- `ml/src/evaluate.py`: evaluates a trained checkpoint and writes metrics/reports.
+- `app.py`: Streamlit app for interactive image inference (upload image, get prediction + probabilities).
+
+Class mapping is stored in:
+
+- `data/processed/metadata/class_map.json`
+
+## How To Use It
 
 ### 1. Install dependencies
 
@@ -14,39 +27,38 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 2. Run locally
+### 2. Configure model source (recommended)
+
+The app has no user-facing model setup. It loads config automatically in this order:
+
+1. `MODEL_CHECKPOINT_URL`
+2. `MODEL_CHECKPOINT`
+3. Latest local checkpoint in `ml/runs/run_*/best_model.pt`
+
+Optional local configuration methods:
+
+1. Environment variables in PowerShell:
 
 ```powershell
-streamlit run app.py
+$env:MODEL_CHECKPOINT_URL="https://huggingface.co/<user>/<repo>/resolve/main/best_model.pt"
 ```
 
-The app has no user model setup UI. It loads model configuration automatically from server secrets/env.
-
-It reads classes from:
-
-- `data/processed/metadata/class_map.json`
-
-### 3. Deploy for free on Streamlit Community Cloud
-
-1. Push this repository to GitHub.
-2. Go to Streamlit Community Cloud.
-3. Create new app using:
-   - Repository: your repo
-   - Branch: your branch
-   - Main file path: `app.py`
-4. In app settings, add secrets (optional but recommended):
+2. Local secrets file at `.streamlit/secrets.toml` (or `%USERPROFILE%\.streamlit\secrets.toml`):
 
 ```toml
 MODEL_CHECKPOINT_URL = "https://huggingface.co/<user>/<repo>/resolve/main/best_model.pt"
 ```
 
-The app loads the model automatically in this order:
+Optional class map override:
 
-1. `MODEL_CHECKPOINT_URL` (secrets/env)
-2. `MODEL_CHECKPOINT` (secrets/env local path)
-3. latest local `ml/runs/run_*/best_model.pt`
+```toml
+CLASS_MAP_PATH = "data/processed/metadata/class_map.json"
+```
 
-### Notes
+### 3. Run the Streamlit app locally
 
-- Do not commit model weights (`.pt`) or private keys to git.
-- If URL loading fails, verify it is a direct file URL and not an HTML page.
+```powershell
+python -m streamlit run app.py
+```
+
+
