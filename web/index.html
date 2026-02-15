@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Surface Defect Classifier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="background-grid" aria-hidden="true"></div>
+
+    <main class="app-shell">
+      <header class="hero">
+        <p class="eyebrow">Industrial Vision Demo</p>
+        <h1>Surface Defect Classifier</h1>
+        <p class="subtitle">Upload an image and inspect the model confidence across all defect classes.</p>
+      </header>
+
+      <section class="panel controls-panel">
+        <div class="field-group">
+          <label for="apiUrl">API URL</label>
+          <input id="apiUrl" type="url" />
+        </div>
+
+        <form id="predictForm">
+          <div class="field-group">
+            <label for="imageFile">Image</label>
+            <input id="imageFile" name="file" type="file" accept="image/*" required />
+          </div>
+          <button id="predictButton" type="submit">Predict Defect</button>
+        </form>
+
+        <div id="status" class="status">Waiting for image.</div>
+      </section>
+
+      <section class="panel results-panel">
+        <div class="preview-wrap">
+          <img id="previewImage" alt="Selected preview" />
+          <p id="previewPlaceholder">No image selected</p>
+        </div>
+
+        <article id="topResult" class="top-result hidden">
+          <h2>Top Prediction</h2>
+          <p class="class-name" id="topClass">-</p>
+          <p class="confidence" id="topConfidence">0.00%</p>
+        </article>
+
+        <article id="probabilityCard" class="probabilities hidden">
+          <h2>Class Probabilities</h2>
+          <div id="probabilityRows"></div>
+        </article>
+      </section>
+
+      <section class="panel classes-panel">
+        <h2>Model Classes</h2>
+        <ul id="classesList"></ul>
+      </section>
+    </main>
+
+    <script src="./config.js"></script>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
