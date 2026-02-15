@@ -19,19 +19,39 @@ from ml.src.infer import DefectPredictor
 PREDICTOR: DefectPredictor | None = None
 
 
+def _looks_like_html(payload: bytes) -> bool:
+    head = payload[:512].lstrip().lower()
+    return (
+        head.startswith(b"<!doctype html")
+        or head.startswith(b"<html")
+        or (head.startswith(b"<") and b"<body" in head)
+    )
+
+
 def _download_checkpoint(checkpoint_url: str) -> Path:
     cache_dir = Path(os.getenv("MODEL_CACHE_DIR", Path(tempfile.gettempdir()) / "defect_classifier"))
     cache_dir.mkdir(parents=True, exist_ok=True)
     checkpoint_path = cache_dir / "model_checkpoint.pt"
     if checkpoint_path.exists():
-        return checkpoint_path
+        with open(checkpoint_path, "rb") as f:
+            cached_head = f.read(512)
+        if not _looks_like_html(cached_head):
+            return checkpoint_path
+        checkpoint_path.unlink(missing_ok=True)
 
     request = Request(checkpoint_url, headers={"User-Agent": "defect-classifier-api/1.0"})
     try:
         with urlopen(request, timeout=120) as response:
             if response.status != 200:
                 raise RuntimeError(f"Failed to download checkpoint: HTTP {response.status}")
-            checkpoint_path.write_bytes(response.read())
+            payload = response.read()
+            content_type = str(response.headers.get("Content-Type", "")).lower()
+            if "text/html" in content_type or _looks_like_html(payload):
+                raise RuntimeError(
+                    "MODEL_CHECKPOINT_URL returned HTML instead of a .pt file. "
+                    "Use a direct file URL (for Hugging Face: .../resolve/main/best_model.pt)."
+                )
+            checkpoint_path.write_bytes(payload)
     except URLError as exc:
         raise RuntimeError(f"Failed to download MODEL_CHECKPOINT_URL: {exc}") from exc
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from pickle import UnpicklingError
 
 import numpy as np
 import torch
@@ -33,7 +34,7 @@ class DefectPredictor:
 
         self.classes = self._load_classes(self.class_map_path)
         self.model = self._build_model(num_classes=len(self.classes))
-        state_dict = torch.load(self.checkpoint_path, map_location=self.device)
+        state_dict = self._load_checkpoint_state_dict(self.checkpoint_path)
         self.model.load_state_dict(state_dict)
         self.model.to(self.device)
         self.model.eval()
@@ -63,6 +64,27 @@ class DefectPredictor:
         in_features = model.fc.in_features
         model.fc = nn.Linear(in_features, num_classes)
         return model
+
+    def _load_checkpoint_state_dict(self, checkpoint_path: Path) -> dict:
+        try:
+            payload = torch.load(checkpoint_path, map_location=self.device, weights_only=True)
+        except TypeError:
+            payload = torch.load(checkpoint_path, map_location=self.device)
+        except UnpicklingError as exc:
+            raise RuntimeError(
+                "Could not read checkpoint. The file is likely not a valid PyTorch checkpoint "
+                "(commonly an HTML page from a non-direct MODEL_CHECKPOINT_URL)."
+            ) from exc
+
+        if isinstance(payload, dict) and "state_dict" in payload and isinstance(payload["state_dict"], dict):
+            return payload["state_dict"]
+        if isinstance(payload, dict):
+            return payload
+
+        raise RuntimeError(
+            "Checkpoint did not contain a state_dict dictionary. "
+            "Export with torch.save(model.state_dict(), 'best_model.pt')."
+        )
 
     @torch.no_grad()
     def predict(self, image: Image.Image) -> dict:
