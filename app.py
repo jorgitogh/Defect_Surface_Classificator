@@ -31,6 +31,37 @@ def get_secret_or_env(name: str) -> str:
     return from_secret
 
 
+def resolve_class_map_path(paths) -> Path:
+    class_map_value = get_secret_or_env("CLASS_MAP_PATH")
+    if class_map_value:
+        class_map_path = Path(class_map_value).expanduser().resolve()
+    else:
+        class_map_path = paths.processed_metadata_dir / "class_map.json"
+    return class_map_path
+
+
+def resolve_checkpoint_path(paths) -> Path:
+    ckpt_url = get_secret_or_env("MODEL_CHECKPOINT_URL")
+    if ckpt_url:
+        return download_checkpoint(ckpt_url.strip())
+
+    ckpt_local = get_secret_or_env("MODEL_CHECKPOINT")
+    if ckpt_local:
+        checkpoint_path = Path(ckpt_local).expanduser().resolve()
+        if checkpoint_path.exists():
+            return checkpoint_path
+        raise FileNotFoundError(f"Configured MODEL_CHECKPOINT does not exist: {checkpoint_path}")
+
+    latest_ckpt = find_latest_checkpoint()
+    if latest_ckpt is not None:
+        return latest_ckpt
+
+    raise FileNotFoundError(
+        "No checkpoint found. Configure MODEL_CHECKPOINT_URL (recommended) "
+        "or MODEL_CHECKPOINT in environment/secrets."
+    )
+
+
 def find_latest_checkpoint() -> Path | None:
     paths = get_paths()
     run_dirs = sorted(
@@ -139,38 +170,20 @@ def predict_image(model, device, image: Image.Image, class_names: list[str]) -> 
 def main():
     st.set_page_config(page_title="Defect Surface Classifier", page_icon=":mag:", layout="centered")
     st.title("Defect Surface Classifier")
-    st.caption("Simple Streamlit demo for image classification with your trained ResNet18 checkpoint.")
+    st.caption("Upload one image and get the predicted surface defect class.")
 
     paths = get_paths()
-    class_map_default = paths.processed_metadata_dir / "class_map.json"
-    latest_ckpt = find_latest_checkpoint()
-
-    with st.sidebar:
-        st.subheader("Model Setup")
-        source = st.radio("Checkpoint source", options=["Local path", "URL"], index=0)
-        ckpt_local_default = get_secret_or_env("MODEL_CHECKPOINT") or (str(latest_ckpt) if latest_ckpt else "")
-        ckpt_url_default = get_secret_or_env("MODEL_CHECKPOINT_URL")
-        class_map_input = st.text_input("class_map.json path", value=str(class_map_default))
-        if source == "Local path":
-            ckpt_input = st.text_input("Checkpoint path (.pt)", value=ckpt_local_default)
-        else:
-            ckpt_input = st.text_input("Checkpoint URL", value=ckpt_url_default)
 
     try:
-        class_names = load_class_names(Path(class_map_input))
+        class_names = load_class_names(resolve_class_map_path(paths))
     except Exception as exc:
-        st.error(f"Class map error: {exc}")
+        st.error(f"Configuration error (class map): {exc}")
         st.stop()
 
     try:
-        if source == "URL":
-            checkpoint_path = download_checkpoint(ckpt_input.strip())
-        else:
-            checkpoint_path = Path(ckpt_input).expanduser().resolve()
-            if not checkpoint_path.exists():
-                raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+        checkpoint_path = resolve_checkpoint_path(paths)
     except Exception as exc:
-        st.error(f"Checkpoint setup error: {exc}")
+        st.error(f"Configuration error (checkpoint): {exc}")
         st.stop()
 
     try:
@@ -179,8 +192,7 @@ def main():
         st.error(f"Model loading error: {exc}")
         st.stop()
 
-    st.success(f"Model loaded on `{device}`")
-    st.caption(f"Checkpoint: `{checkpoint_path}`")
+    st.success(f"Model ready ({device})")
 
     uploaded = st.file_uploader("Upload image", type=["jpg", "jpeg", "png", "bmp", "webp"])
     if uploaded is None:

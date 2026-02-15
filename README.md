@@ -20,10 +20,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-The app lets you choose:
-
-- local checkpoint path (`best_model.pt`)
-- or checkpoint URL (for example Hugging Face direct `.../resolve/main/best_model.pt`)
+The app has no user model setup UI. It loads model configuration automatically from server secrets/env.
 
 It reads classes from:
 
@@ -43,7 +40,11 @@ It reads classes from:
 MODEL_CHECKPOINT_URL = "https://huggingface.co/<user>/<repo>/resolve/main/best_model.pt"
 ```
 
-Then in the app sidebar choose `Checkpoint source = URL` and use that value.
+The app loads the model automatically in this order:
+
+1. `MODEL_CHECKPOINT_URL` (secrets/env)
+2. `MODEL_CHECKPOINT` (secrets/env local path)
+3. latest local `ml/runs/run_*/best_model.pt`
 
 ### Notes
 
