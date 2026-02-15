@@ -40,12 +40,12 @@ def get_transforms(split: str):
 
 
 class NeuDefectDataset(Dataset):
-    def __init__(self, split: str):
+    def __init__(self, split: str, metadata_csv: Path | None = None):
         self.split = split
         paths = get_paths()
-        split_csv = paths.processed_metadata_dir / "split.csv"
+        split_csv = metadata_csv if metadata_csv is not None else (paths.processed_metadata_dir / "split.csv")
         if not split_csv.exists():
-            raise FileNotFoundError(f"split.csv not found at {split_csv}. Run prepare_data.py first.")
+            raise FileNotFoundError(f"Metadata CSV not found at {split_csv}. Run prepare_data.py first.")
 
         df = pd.read_csv(split_csv)
         df = df[df["split"] == split].reset_index(drop=True)

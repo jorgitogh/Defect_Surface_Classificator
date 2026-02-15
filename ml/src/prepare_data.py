@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import argparse
 import json
+import hashlib
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -18,6 +20,17 @@ CLASSES = [
     "rolled-in_scale",
     "scratches",
 ]
+
+
+def file_sha256(path: Path, chunk_size: int = 1024 * 1024) -> str:
+    hasher = hashlib.sha256()
+    with open(path, "rb") as f:
+        while True:
+            chunk = f.read(chunk_size)
+            if not chunk:
+                break
+            hasher.update(chunk)
+    return hasher.hexdigest()
 
 
 def parse_voc_xml(xml_path: Path) -> dict:
@@ -126,6 +139,15 @@ def build_metadata(images_root: Path, annotations_root: Path) -> pd.DataFrame:
         print(f"[WARN] Missing images for {missing} annotations. They will be dropped.")
     df = df[df["image_exists"] == 1].reset_index(drop=True)
 
+    # Remove exact duplicate image content so identical files cannot be split across train/val/test.
+    abs_paths = [images_root.parent / rel for rel in df["rel_path"]]
+    df["content_hash"] = [file_sha256(p) for p in abs_paths]
+    before = len(df)
+    df = df.drop_duplicates(subset=["content_hash"], keep="first").reset_index(drop=True)
+    removed = before - len(df)
+    if removed:
+        print(f"[WARN] Dropped {removed} exact duplicate images by content hash.")
+
     return df
 
 
@@ -163,29 +185,46 @@ def make_splits(df: pd.DataFrame, seed: int = 42, train_size: float = 0.7, val_s
 
 
 def main():
-    paths = get_paths()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--images_dir_name", type=str, default="images", help="Folder name under data/raw/neu for images")
+    parser.add_argument("--annotations_dir_name", type=str, default="annotations", help="Folder name under data/raw/neu for XML annotations")
+    parser.add_argument("--images_csv_name", type=str, default="images.csv", help="Output metadata CSV file name")
+    parser.add_argument("--split_csv_name", type=str, default="split.csv", help="Output split CSV file name")
+    parser.add_argument("--single_split_name", type=str, default=None, help="If set, skip train/val/test split and assign this split to all rows")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--train_size", type=float, default=0.7)
+    parser.add_argument("--val_size", type=float, default=0.15)
+    args = parser.parse_args()
 
-    if not paths.raw_images_dir.exists():
-        raise FileNotFoundError(f"Images folder not found: {paths.raw_images_dir}")
-    if not paths.raw_annotations_dir.exists():
+    paths = get_paths()
+    raw_neu_root = paths.raw_neu_dir
+    images_root = raw_neu_root / args.images_dir_name
+    annotations_root = raw_neu_root / args.annotations_dir_name
+
+    if not images_root.exists():
+        raise FileNotFoundError(f"Images folder not found: {images_root}")
+    if not annotations_root.exists():
         raise FileNotFoundError(
-            f"Annotations folder not found: {paths.raw_annotations_dir}\n"
-            "Rename your folder to data/raw/neu/annotations (currently you have 'annotation'?)"
+            f"Annotations folder not found: {annotations_root}"
         )
 
 
     class_map = {name: i for i, name in enumerate(CLASSES)}
 
-    df = build_metadata(paths.raw_images_dir, paths.raw_annotations_dir)
+    df = build_metadata(images_root, annotations_root)
     df["label_id"] = df["label"].map(class_map).astype(int)
 
-    images_csv = paths.processed_metadata_dir / "images.csv"
+    images_csv = paths.processed_metadata_dir / args.images_csv_name
     df.to_csv(images_csv, index=False)
     print(f"[OK] Wrote {images_csv} with {len(df)} rows.")
 
 
-    split_df = make_splits(df, seed=42, train_size=0.7, val_size=0.15)
-    split_csv = paths.processed_metadata_dir / "split.csv"
+    if args.single_split_name:
+        split_df = df.copy()
+        split_df["split"] = args.single_split_name
+    else:
+        split_df = make_splits(df, seed=args.seed, train_size=args.train_size, val_size=args.val_size)
+    split_csv = paths.processed_metadata_dir / args.split_csv_name
     split_df[["rel_path", "label", "label_id", "split"]].to_csv(split_csv, index=False)
     print(f"[OK] Wrote {split_csv}.")
 
@@ -195,11 +234,12 @@ def main():
     print(f"[OK] Wrote {class_map_path}.")
 
 
-    for split_name in ["train", "val", "test"]:
-        out_txt = paths.processed_splits_dir / f"{split_name}.txt"
-        lines = split_df.loc[split_df["split"] == split_name, "rel_path"].tolist()
-        out_txt.write_text("\n".join(lines), encoding="utf-8")
-        print(f"[OK] Wrote {out_txt} ({len(lines)} lines).")
+    if not args.single_split_name:
+        for split_name in ["train", "val", "test"]:
+            out_txt = paths.processed_splits_dir / f"{split_name}.txt"
+            lines = split_df.loc[split_df["split"] == split_name, "rel_path"].tolist()
+            out_txt.write_text("\n".join(lines), encoding="utf-8")
+            print(f"[OK] Wrote {out_txt} ({len(lines)} lines).")
 
     print("\n=== Class distribution (all) ===")
     print(df["label"].value_counts().to_string())
